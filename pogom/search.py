@@ -3,6 +3,7 @@
 
 import logging
 import time
+import math
 
 from pgoapi import PGoApi
 from pgoapi.utilities import f2i, get_cellid
@@ -31,16 +32,39 @@ def send_map_request(api, position):
         return False
 
 
-def generate_location_steps(initial_location, num_steps):
-    pos, x, y, dx, dy = 1, 0, 0, 0, -1
+def hex_transform(x,y,r,il):
+    return (x+y/2)*r[0]+il[0],(0.886*y)*r[1]+il[1],0
 
-    while -num_steps / 2 < x <= num_steps / 2 and -num_steps / 2 < y <= num_steps / 2:
-        yield (x * 0.0025 + initial_location[0], y * 0.0025 + initial_location[1], 0)
-
-        if x == y or (x < 0 and x == -y) or (x > 0 and x == 1 - y):
-            dx, dy = -dy, dx
-
-        x, y = x + dx, y + dy
+def generate_location_steps(il, num_steps):
+    pos, x, y, m = 1, 0., 0., 173.2
+    conv = float(111111)                            # ~meters per degree
+    r = m/conv, m/conv / math.cos(il[0]*0.0174533)  # Conversion of radius from meters to deg
+    yield hex_transform(x,y,r,il)
+    for n in range(1,num_steps):
+        n+=1
+        for i in range(1, n):
+            x+=1
+            yield hex_transform(x,y,r,il)
+        for i in range(1, n-1):
+            y+=1
+            yield hex_transform(x,y,r,il)
+        for i in range(1, n):
+            x-=1
+            y+=1
+            yield hex_transform(x,y,r,il)
+        for i in range(1, n):
+            x-=1
+            yield hex_transform(x,y,r,il)
+        for i in range(1, n):
+            y-=1
+            yield hex_transform(x,y,r,il)
+        for i in range(1, n):
+            x+=1
+            y-=1
+            yield hex_transform(x,y,r,il)
+    for i in range(1, num_steps):
+        x+=1
+        yield hex_transform(x,y,r,il)
 
 
 def login(args, position):
